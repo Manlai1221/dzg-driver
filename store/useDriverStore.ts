@@ -45,9 +45,14 @@ export const useDriverStore = create<DriverState>((set, get) => ({
   login: async (phone, password) => {
     set({ loading: true });
     try {
+      console.log("[login] attempt phone:", JSON.stringify(phone));
       const res = await authService.login(phone, password);
       await storage.set(TOKEN_KEY, res.accessToken);
       set({ driver: res.driver, token: res.accessToken });
+      console.log("[login] success driver:", res.driver?._id);
+    } catch (err: any) {
+      console.warn("[login] failed:", err?.message);
+      throw err;
     } finally {
       set({ loading: false });
     }

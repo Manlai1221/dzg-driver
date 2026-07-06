@@ -17,7 +17,26 @@ api.interceptors.request.use(async (config) => {
 api.interceptors.response.use(
   (res) => res.data,
   (err) => {
-    const message = err.response?.data?.message || err.message || "Алдаа гарлаа";
+    // --- ОНОШИЙН LOG (нэвтрэлт / хүсэлтийн алдааг илрүүлэх) ---
+    const cfg = err.config || {};
+    const fullUrl = `${cfg.baseURL || ""}${cfg.url || ""}`;
+    console.warn(
+      "[api-error]",
+      "method:", cfg.method,
+      "url:", fullUrl,
+      "status:", err.response?.status ?? "(no response)",
+      "code:", err.code,
+      "data:", JSON.stringify(err.response?.data),
+      "message:", err.message,
+    );
+    // "Application not found" гэх мэт хариу нь backend-ээс биш, host (Railway/Vercel)
+    // -ийн 404 байх магадлалтай — доорх лог үүнийг ялгаж харуулна.
+    const rawData = err.response?.data;
+    const message =
+      (rawData && typeof rawData === "object" && rawData.message) ||
+      (typeof rawData === "string" && rawData) ||
+      err.message ||
+      "Алдаа гарлаа";
     return Promise.reject(new Error(message));
   },
 );

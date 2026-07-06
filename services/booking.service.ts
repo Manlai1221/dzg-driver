@@ -13,6 +13,7 @@ export interface Booking {
   totalAmount: number;
   amount: number;
   createdAt: string;
+  driver?: string;
   driverAcceptedAt?: string;
   user?: {
     firstName?: string;
@@ -24,8 +25,13 @@ export interface Booking {
 }
 
 export const bookingService = {
-  list: (page = 1): Promise<{ bookings: Booking[]; total: number }> =>
-    api.get("/bookings", { params: { page, limit: 20 } }),
+  // scope="available" → авах боломжтой (эзэнгүй PAID захиалгууд)
+  // scope="mine"      → миний хүргэж яваа идэвхтэй захиалгууд (DELIVERY)
+  list: (params?: {
+    scope?: "available" | "mine";
+    page?: number;
+  }): Promise<{ bookings: Booking[]; total: number }> =>
+    api.get("/bookings", { params: { page: 1, limit: 50, ...params } }),
 
   detail: (id: string): Promise<{ booking: Booking }> =>
     api.get(`/bookings/${id}`),
@@ -35,4 +41,7 @@ export const bookingService = {
 
   complete: (id: string): Promise<{ booking: Booking }> =>
     api.post(`/bookings/${id}/complete`),
+
+  stats: (): Promise<{ delivered: number; delivering: number }> =>
+    api.get("/stats"),
 };

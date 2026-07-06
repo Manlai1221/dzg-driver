@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  ActivityIndicator, Alert, Image, KeyboardAvoidingView, Platform,
   StatusBar, Text, TextInput, TouchableOpacity, View,
 } from "react-native";
 
@@ -68,20 +68,15 @@ export default function LoginScreen() {
       <StatusBar barStyle="dark-content" />
       <View style={{ flex: 1, paddingHorizontal: 28, justifyContent: "center" }}>
 
-        {/* Logo */}
-        <View style={{ alignItems: "center", marginBottom: 48 }}>
-          <View style={{
-            width: 84, height: 84, borderRadius: 28,
-            backgroundColor: C.primary, alignItems: "center", justifyContent: "center",
-            marginBottom: 20,
-          }}>
-            <Ionicons name="bicycle" size={40} color={C.onPrimary} />
-          </View>
-          <Text style={{ fontSize: 26, fontWeight: "800", color: C.textDark }}>
-            Жолоочийн апп
+        <View style={{ alignItems: "center", marginBottom: 40 }}>
+          <Image source={require('../../public/logo.png')}
+            style={{ width: 140, height: 140, marginBottom: 8 }}
+          />
+          <Text style={{ fontSize: 24, fontWeight: "800", color: C.textDark }}>
+            Тавтай морилно уу
           </Text>
           <Text style={{ fontSize: 14, color: C.textMd, marginTop: 6 }}>
-            Бүртгэлтэй дансаараа нэвтэрнэ үү
+            Өнөөдрийн хүргэлтэд амжилт хүсье
           </Text>
         </View>
 

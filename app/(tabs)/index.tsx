@@ -1,24 +1,19 @@
-/**
- * Шинэ захиалгуудын жагсаалт — PAID, жолооч хуваарилагдаагүй
- * 5 секунд тутам polling хийнэ + FCM push ирэхэд дахин ачаална
- */
 import { C } from "@/constants/theme";
 import { Booking, bookingService } from "@/services/booking.service";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
-import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator, Alert, FlatList, Modal, Platform,
+  ActivityIndicator, Alert, FlatList, Linking, Modal, Platform,
   RefreshControl, SafeAreaView, StatusBar, Text,
   TouchableOpacity, View, ScrollView,
 } from "react-native";
 
 const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
-  PENDING:  { label: "Хүлээгдэж байна", color: C.warning,  bg: C.warningBg },
-  PAID:     { label: "Төлбөр баталгаажсан", color: C.delivery, bg: C.deliveryBg },
-  DELIVERY: { label: "Хүргэлтэнд",     color: C.delivery, bg: C.deliveryBg },
-  COMPLETED:{ label: "Дууссан",         color: C.success,  bg: C.successBg },
+  PENDING: { label: "Хүлээгдэж байна", color: C.warning, bg: C.warningBg },
+  PAID: { label: "Төлбөр баталгаажсан", color: C.delivery, bg: C.deliveryBg },
+  DELIVERY: { label: "Хүргэлтэнд", color: C.delivery, bg: C.deliveryBg },
+  COMPLETED: { label: "Дууссан", color: C.success, bg: C.successBg },
 };
 
 export default function OrdersScreen() {
@@ -27,15 +22,18 @@ export default function OrdersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<Booking | null>(null);
   const [accepting, setAccepting] = useState(false);
+  const [newOrderFlash, setNewOrderFlash] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const res = await bookingService.list();
-      // Зөвхөн жолооч хуваарилагдаагүй, хүлээгдэж буй захиалгуудыг харуулна
+      const res = await bookingService.list({ scope: "available" });
+      // scope=available аль хэдийн эзэнгүй PAID-г буцаадаг ч аюулгүйн үүднээс дахин шүүнэ.
       const pending = res.bookings.filter(
-        (b) => ["PENDING", "PAID"].includes(b.status) && !(b as any).driver
+        (b) => ["PENDING", "PAID"].includes(b.status) && !b.driver
       );
       setBookings(pending);
     } catch (e: any) {
@@ -46,22 +44,28 @@ export default function OrdersScreen() {
     }
   }, []);
 
-  // Анхны ачаалал
   useEffect(() => { load(); }, [load]);
 
-  // 5 секунд тутам polling
   useEffect(() => {
     pollRef.current = setInterval(() => load(true), 5000);
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, [load]);
 
-  // FCM push notification ирэхэд шууд дахин ачаална
   useEffect(() => {
     const sub = Notifications.addNotificationReceivedListener((n) => {
       const data = n.request.content.data as any;
-      if (data?.type === "NEW_BOOKING") load(true);
+      if (data?.type === "NEW_BOOKING") {
+        load(true);
+        // Апп нээлттэй үед тод дотоод мэдэгдэл харуулна (5 сек)
+        setNewOrderFlash(true);
+        if (flashTimer.current) clearTimeout(flashTimer.current);
+        flashTimer.current = setTimeout(() => setNewOrderFlash(false), 5000);
+      }
     });
-    return () => sub.remove();
+    return () => {
+      sub.remove();
+      if (flashTimer.current) clearTimeout(flashTimer.current);
+    };
   }, [load]);
 
   const handleAccept = async () => {
@@ -71,10 +75,25 @@ export default function OrdersScreen() {
       await bookingService.accept(selected._id);
       setSelected(null);
       load(true);
-      // Хүргэлтийн tab руу шилжинэ
-      router.push("/(tabs)/active");
+      // Жолооч олон захиалга авч болох тул энд үлдээж, дараагийнхийг
+      // үргэлжлүүлэн авах боломжтой болгоно. "Хүргэлт" таб дээр бүх
+      // авсан захиалга харагдана.
+      Alert.alert(
+        "Хүлээж авлаа",
+        "Захиалга таны хүргэлтэд нэмэгдлээ. Дараагийн захиалгыг үргэлжлүүлэн авч болно.",
+      );
     } catch (e: any) {
-      Alert.alert("Алдаа", e.message);
+      const msg = String(e?.message || "");
+      // Backend: "Захиалга олдсонгүй эсвэл аль хэдийн авагдсан байна"
+      const alreadyTaken = msg.includes("авагдсан") || msg.includes("олдсонгүй");
+      if (alreadyTaken) {
+        // Өөр жолооч түрүүлж авсан — modal хааж, жагсаалтыг шинэчилнэ
+        setSelected(null);
+        load(true);
+        Alert.alert("Захиалга авагдсан", "Энэ захиалгыг өөр жолооч аль хэдийн авчихлаа.");
+      } else {
+        Alert.alert("Алдаа", msg || "Дахин оролдоно уу.");
+      }
     } finally {
       setAccepting(false);
     }
@@ -83,51 +102,64 @@ export default function OrdersScreen() {
   const renderItem = ({ item }: { item: Booking }) => {
     const st = STATUS_LABEL[item.status] ?? STATUS_LABEL.PAID;
     return (
-      <TouchableOpacity
-        onPress={() => setSelected(item)}
-        style={{
-          backgroundColor: C.surface, borderRadius: 20,
-          padding: 18, marginHorizontal: 16, marginBottom: 12,
-          borderWidth: 1, borderColor: C.border,
-          shadowColor: C.shadow, shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
-        }}
-      >
-        <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
-          <Text style={{ fontSize: 15, fontWeight: "800", color: C.textDark }}>{item.code}</Text>
-          <View style={{ backgroundColor: st.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
-            <Text style={{ fontSize: 11, fontWeight: "700", color: st.color }}>{st.label}</Text>
-          </View>
-        </View>
+      <View style={{
+        marginHorizontal: 16, marginBottom: 12,
+        shadowColor: C.shadow, shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08, shadowRadius: 12, elevation: 4,
+        borderRadius: 20,
+      }}>
+        <TouchableOpacity
+          onPress={() => setSelected(item)}
+          style={{
+            backgroundColor: C.surface, borderRadius: 20,
+            overflow: "hidden",
+            borderWidth: 1, borderColor: C.border,
+          }}
+        >
+          {/* Left accent stripe */}
+          <View style={{
+            position: "absolute", left: 0, top: 0, bottom: 0, width: 4,
+            backgroundColor: st.color,
+          }} />
 
-        {item.user && (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
-            <Ionicons name="person-outline" size={14} color={C.textMd} />
-            <Text style={{ fontSize: 13, color: C.textMd }}>
-              {[item.user.firstName, item.user.lastName].filter(Boolean).join(" ") || "Хэрэглэгч"}
-            </Text>
-            {item.user.phone && (
-              <Text style={{ fontSize: 13, color: C.textSm }}>• {item.user.phone}</Text>
+          <View style={{ padding: 18, paddingLeft: 22 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 10 }}>
+              <Text style={{ fontSize: 15, fontWeight: "800", color: C.textDark }}>{item.code}</Text>
+              <View style={{ backgroundColor: st.bg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 }}>
+                <Text style={{ fontSize: 11, fontWeight: "700", color: st.color }}>{st.label}</Text>
+              </View>
+            </View>
+
+            {item.user && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <Ionicons name="person-outline" size={14} color={C.textMd} />
+                <Text style={{ fontSize: 13, color: C.textMd }}>
+                  {[item.user.firstName, item.user.lastName].filter(Boolean).join(" ") || "Хэрэглэгч"}
+                </Text>
+                {item.user.phone && (
+                  <Text style={{ fontSize: 13, color: C.textSm }}>• {item.user.phone}</Text>
+                )}
+              </View>
             )}
-          </View>
-        )}
 
-        {item.user?.address && (
-          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6, marginBottom: 8 }}>
-            <Ionicons name="location-outline" size={14} color={C.textMd} style={{ marginTop: 2 }} />
-            <Text style={{ fontSize: 13, color: C.textMd, flex: 1 }}>{item.user.address}</Text>
-          </View>
-        )}
+            {item.user?.address && (
+              <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6, marginBottom: 8 }}>
+                <Ionicons name="location-outline" size={14} color={C.textMd} style={{ marginTop: 2 }} />
+                <Text style={{ fontSize: 13, color: C.textMd, flex: 1 }}>{item.user.address}</Text>
+              </View>
+            )}
 
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <Text style={{ fontSize: 13, color: C.textSm }}>
-            {item.items?.length ?? 0} бараа
-          </Text>
-          <Text style={{ fontSize: 16, fontWeight: "800", color: C.textDark }}>
-            {(item.totalAmount ?? 0).toLocaleString()}₮
-          </Text>
-        </View>
-      </TouchableOpacity>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+              <Text style={{ fontSize: 13, color: C.textSm }}>
+                {item.items?.length ?? 0} бараа
+              </Text>
+              <Text style={{ fontSize: 16, fontWeight: "800", color: C.textDark }}>
+                {(item.totalAmount ?? 0).toLocaleString()}₮
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </View>
     );
   };
 
@@ -144,10 +176,33 @@ export default function OrdersScreen() {
         <Text style={{ fontSize: 22, fontWeight: "800", color: C.textDark }}>
           Шинэ захиалгууд
         </Text>
-        <Text style={{ fontSize: 13, color: C.textMd, marginTop: 2 }}>
-          {bookings.length} захиалга хүлээж байна
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: C.success }} />
+          <Text style={{ fontSize: 13, color: C.textMd }}>
+            {bookings.length} захиалга хүлээж байна
+          </Text>
+        </View>
       </View>
+
+      {/* Шинэ захиалга ирсэн үеийн тод мэдэгдэл (апп нээлттэй үед) */}
+      {newOrderFlash && (
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() => setNewOrderFlash(false)}
+          style={{
+            marginHorizontal: 16, marginTop: 12,
+            backgroundColor: C.successBg, borderRadius: 16, padding: 14,
+            flexDirection: "row", alignItems: "center", gap: 10,
+            borderWidth: 1, borderColor: C.success,
+          }}
+        >
+          <Ionicons name="notifications" size={20} color={C.success} />
+          <Text style={{ flex: 1, fontSize: 14, fontWeight: "700", color: C.success }}>
+            🛵 Шинэ захиалга ирлээ!
+          </Text>
+          <Ionicons name="close" size={16} color={C.success} />
+        </TouchableOpacity>
+      )}
 
       {loading ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
@@ -162,11 +217,17 @@ export default function OrdersScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}
           ListEmptyComponent={
             <View style={{ alignItems: "center", marginTop: 80, gap: 12 }}>
-              <Ionicons name="receipt-outline" size={56} color={C.border} />
-              <Text style={{ fontSize: 16, color: C.textMd, fontWeight: "600" }}>
+              <View style={{
+                width: 96, height: 96, borderRadius: 32, backgroundColor: C.bgMuted,
+                alignItems: "center", justifyContent: "center",
+                borderWidth: 1, borderColor: C.border,
+              }}>
+                <Ionicons name="receipt-outline" size={44} color={C.textSm} />
+              </View>
+              <Text style={{ fontSize: 16, color: C.textDark, fontWeight: "700" }}>
                 Одоогоор захиалга байхгүй
               </Text>
-              <Text style={{ fontSize: 13, color: C.textSm }}>
+              <Text style={{ fontSize: 13, color: C.textSm, textAlign: "center", paddingHorizontal: 40 }}>
                 Шинэ захиалга ирэхэд автоматаар харагдана
               </Text>
             </View>
@@ -186,11 +247,17 @@ export default function OrdersScreen() {
 
             <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <Text style={{ fontSize: 20, fontWeight: "800", color: C.textDark }}>
-                  {selected?.code}
-                </Text>
-                <TouchableOpacity onPress={() => setSelected(null)}>
-                  <Ionicons name="close-circle" size={28} color={C.textSm} />
+                <View>
+                  <Text style={{ fontSize: 20, fontWeight: "800", color: C.textDark }}>
+                    {selected?.code}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: C.textSm, marginTop: 2 }}>Захиалгын дэлгэрэнгүй</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setSelected(null)}
+                  style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: C.bgMuted, alignItems: "center", justifyContent: "center" }}
+                >
+                  <Ionicons name="close" size={18} color={C.textMd} />
                 </TouchableOpacity>
               </View>
 
@@ -202,18 +269,33 @@ export default function OrdersScreen() {
                   <Text style={{ fontSize: 12, fontWeight: "700", color: C.textSm, marginBottom: 10, letterSpacing: 0.5 }}>
                     ХЭРЭГЛЭГЧ
                   </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
                     <Ionicons name="person-outline" size={16} color={C.textMd} />
                     <Text style={{ fontSize: 15, fontWeight: "600", color: C.textDark }}>
                       {[selected.user.firstName, selected.user.lastName].filter(Boolean).join(" ") || "—"}
                     </Text>
                   </View>
+
                   {selected.user.phone && (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                      <Ionicons name="call-outline" size={16} color={C.textMd} />
-                      <Text style={{ fontSize: 14, color: C.textMd }}>{selected.user.phone}</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <Ionicons name="call-outline" size={16} color={C.textMd} />
+                        <Text style={{ fontSize: 14, color: C.textMd }}>{selected.user.phone}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => Linking.openURL(`tel:${selected?.user?.phone}`)}
+                        style={{
+                          backgroundColor: C.successBg, borderRadius: 12,
+                          paddingHorizontal: 12, paddingVertical: 6,
+                          flexDirection: "row", alignItems: "center", gap: 4,
+                        }}
+                      >
+                        <Ionicons name="call" size={13} color={C.success} />
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: C.success }}>Залгах</Text>
+                      </TouchableOpacity>
                     </View>
                   )}
+
                   {selected.user.address && (
                     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
                       <Ionicons name="location-outline" size={16} color={C.delivery} style={{ marginTop: 2 }} />
@@ -264,19 +346,21 @@ export default function OrdersScreen() {
                 onPress={handleAccept}
                 disabled={accepting}
                 style={{
-                  backgroundColor: accepting ? C.primaryDisabled : C.primary,
+                  backgroundColor: accepting ? C.primaryDisabled : C.success,
                   borderRadius: 20, paddingVertical: 18, alignItems: "center",
                   flexDirection: "row", justifyContent: "center", gap: 10,
+                  shadowColor: C.success, shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: accepting ? 0 : 0.3, shadowRadius: 12, elevation: 6,
                 }}
               >
                 {accepting
-                  ? <ActivityIndicator color={C.onPrimary} />
+                  ? <ActivityIndicator color="#fff" />
                   : <>
-                      <Ionicons name="checkmark-circle-outline" size={22} color={C.onPrimary} />
-                      <Text style={{ color: C.onPrimary, fontSize: 16, fontWeight: "700" }}>
-                        Захиалга хүлээж авах
-                      </Text>
-                    </>
+                    <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
+                    <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
+                      Захиалга хүлээж авах
+                    </Text>
+                  </>
                 }
               </TouchableOpacity>
             </ScrollView>
