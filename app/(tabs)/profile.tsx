@@ -16,7 +16,12 @@ import {
 
 export default function ProfileScreen() {
   const { driver, logout } = useDriverStore();
-  const [stats, setStats] = useState({ delivered: 0, delivering: 0 });
+  const [stats, setStats] = useState({
+    delivered: 0,
+    delivering: 0,
+    rating: 0,
+    ratingCount: 0,
+  });
 
   useFocusEffect(
     useCallback(() => {
@@ -25,7 +30,12 @@ export default function ProfileScreen() {
         .stats()
         .then((s) => {
           if (active)
-            setStats({ delivered: s.delivered ?? 0, delivering: s.delivering ?? 0 });
+            setStats({
+              delivered: s.delivered ?? 0,
+              delivering: s.delivering ?? 0,
+              rating: s.rating ?? 0,
+              ratingCount: s.ratingCount ?? 0,
+            });
         })
         .catch(() => {});
       return () => {
@@ -125,6 +135,47 @@ export default function ProfileScreen() {
               {driver?.isAvailable ? "Боломжтой" : "Хүргэлт дээр"}
             </Text>
           </View>
+        </View>
+
+        {/* Дундаж үнэлгээ — хэрэглэгчдийн өгсөн 1–10 оноо */}
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 14,
+            backgroundColor: C.warningBg,
+            borderRadius: 20,
+            padding: 18,
+            borderWidth: 1,
+            borderColor: C.warning + "33",
+          }}
+        >
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: C.warning,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Ionicons name="star" size={24} color={C.onPrimary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, color: C.textMd, fontWeight: "600" }}>
+              Миний үнэлгээ
+            </Text>
+            <Text style={{ fontSize: 28, fontWeight: "800", color: C.textDark }}>
+              {stats.ratingCount > 0 ? `${stats.rating.toFixed(1)}` : "—"}
+              <Text style={{ fontSize: 16, color: C.textSm }}> / 10</Text>
+            </Text>
+          </View>
+          <Text style={{ fontSize: 12, color: C.textSm, textAlign: "right" }}>
+            {stats.ratingCount > 0
+              ? `${stats.ratingCount} үнэлгээ`
+              : "Үнэлгээ\nхүлээгдэж байна"}
+          </Text>
         </View>
 
         {/* Статистик */}

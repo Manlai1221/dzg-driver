@@ -65,6 +65,10 @@ export const bookingService = {
   complete: (id: string): Promise<{ booking: Booking }> =>
     api.post(`/bookings/${id}/complete`),
 
-  stats: (): Promise<{ delivered: number; delivering: number }> =>
-    api.get("/stats"),
+  stats: (): Promise<{
+    delivered: number;
+    delivering: number;
+    rating: number;
+    ratingCount: number;
+  }> => api.get("/stats"),
 };
