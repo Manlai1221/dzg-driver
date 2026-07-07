@@ -73,7 +73,7 @@ export default function LoginScreen() {
             style={{ width: 140, height: 140, marginBottom: 8 }}
           />
           <Text style={{ fontSize: 24, fontWeight: "800", color: C.textDark }}>
-            Тавтай морилно уу
+            C21 Driver App
           </Text>
           <Text style={{ fontSize: 14, color: C.textMd, marginTop: 6 }}>
             Өнөөдрийн хүргэлтэд амжилт хүсье

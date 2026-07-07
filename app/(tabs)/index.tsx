@@ -1,5 +1,5 @@
 import { C } from "@/constants/theme";
-import { Booking, bookingService } from "@/services/booking.service";
+import { Booking, bookingContact, bookingService } from "@/services/booking.service";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -101,6 +101,7 @@ export default function OrdersScreen() {
 
   const renderItem = ({ item }: { item: Booking }) => {
     const st = STATUS_LABEL[item.status] ?? STATUS_LABEL.PAID;
+    const c = bookingContact(item);
     return (
       <View style={{
         marginHorizontal: 16, marginBottom: 12,
@@ -130,24 +131,20 @@ export default function OrdersScreen() {
               </View>
             </View>
 
-            {item.user && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                <Ionicons name="person-outline" size={14} color={C.textMd} />
-                <Text style={{ fontSize: 13, color: C.textMd }}>
-                  {[item.user.firstName, item.user.lastName].filter(Boolean).join(" ") || "Хэрэглэгч"}
-                </Text>
-                {item.user.phone && (
-                  <Text style={{ fontSize: 13, color: C.textSm }}>• {item.user.phone}</Text>
-                )}
-              </View>
-            )}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+              <Ionicons name="person-outline" size={14} color={C.textMd} />
+              <Text style={{ fontSize: 13, color: C.textMd }}>{c.name}</Text>
+              {c.phone ? (
+                <Text style={{ fontSize: 13, color: C.textSm }}>• {c.phone}</Text>
+              ) : null}
+            </View>
 
-            {item.user?.address && (
+            {c.address ? (
               <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6, marginBottom: 8 }}>
                 <Ionicons name="location-outline" size={14} color={C.textMd} style={{ marginTop: 2 }} />
-                <Text style={{ fontSize: 13, color: C.textMd, flex: 1 }}>{item.user.address}</Text>
+                <Text style={{ fontSize: 13, color: C.textMd, flex: 1 }}>{c.address}</Text>
               </View>
-            )}
+            ) : null}
 
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <Text style={{ fontSize: 13, color: C.textSm }}>
@@ -163,10 +160,11 @@ export default function OrdersScreen() {
     );
   };
 
+  const selectedContact = selected ? bookingContact(selected) : null;
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: C.bgMuted }}>
       <StatusBar barStyle="dark-content" />
-
       {/* Header */}
       <View style={{
         backgroundColor: C.surface, paddingHorizontal: 20,
@@ -262,7 +260,7 @@ export default function OrdersScreen() {
               </View>
 
               {/* Хэрэглэгчийн мэдээлэл */}
-              {selected?.user && (
+              {selectedContact && (
                 <View style={{
                   backgroundColor: C.bgMuted, borderRadius: 16, padding: 16, marginBottom: 16,
                 }}>
@@ -272,18 +270,18 @@ export default function OrdersScreen() {
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
                     <Ionicons name="person-outline" size={16} color={C.textMd} />
                     <Text style={{ fontSize: 15, fontWeight: "600", color: C.textDark }}>
-                      {[selected.user.firstName, selected.user.lastName].filter(Boolean).join(" ") || "—"}
+                      {selectedContact.name}
                     </Text>
                   </View>
 
-                  {selected.user.phone && (
+                  {selectedContact.phone ? (
                     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                         <Ionicons name="call-outline" size={16} color={C.textMd} />
-                        <Text style={{ fontSize: 14, color: C.textMd }}>{selected.user.phone}</Text>
+                        <Text style={{ fontSize: 14, color: C.textMd }}>{selectedContact.phone}</Text>
                       </View>
                       <TouchableOpacity
-                        onPress={() => Linking.openURL(`tel:${selected?.user?.phone}`)}
+                        onPress={() => Linking.openURL(`tel:${selectedContact.phone}`)}
                         style={{
                           backgroundColor: C.successBg, borderRadius: 12,
                           paddingHorizontal: 12, paddingVertical: 6,
@@ -294,16 +292,16 @@ export default function OrdersScreen() {
                         <Text style={{ fontSize: 12, fontWeight: "700", color: C.success }}>Залгах</Text>
                       </TouchableOpacity>
                     </View>
-                  )}
+                  ) : null}
 
-                  {selected.user.address && (
+                  {selectedContact.address ? (
                     <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8 }}>
                       <Ionicons name="location-outline" size={16} color={C.delivery} style={{ marginTop: 2 }} />
                       <Text style={{ fontSize: 14, color: C.textDark, flex: 1, lineHeight: 22 }}>
-                        {selected.user.address}
+                        {selectedContact.address}
                       </Text>
                     </View>
-                  )}
+                  ) : null}
                 </View>
               )}
 

@@ -1,5 +1,9 @@
 import { C } from "@/constants/theme";
-import { Booking, bookingService } from "@/services/booking.service";
+import {
+  Booking,
+  bookingContact,
+  bookingService,
+} from "@/services/booking.service";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
@@ -119,144 +123,141 @@ export default function ActiveScreen() {
           contentContainerStyle={{ padding: 16, gap: 14, paddingBottom: 32 }}
           refreshControl={<RefreshControl refreshing={false} onRefresh={() => load()} />}
         >
-          {bookings.map((booking) => (
-            <View
-              key={booking._id}
-              style={{
-                backgroundColor: C.surface,
-                borderRadius: 20,
-                borderWidth: 1,
-                borderColor: C.border,
-                overflow: "hidden",
-              }}
-            >
-              {/* Гарчиг — захиалгын код + нийт дүн */}
+          {bookings.map((booking) => {
+            const c = bookingContact(booking);
+            return (
               <View
+                key={booking._id}
                 style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  paddingHorizontal: 18,
-                  paddingVertical: 14,
-                  borderBottomWidth: 1,
-                  borderBottomColor: C.border,
+                  backgroundColor: C.surface,
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: C.border,
+                  overflow: "hidden",
                 }}
               >
-                <Text style={{ fontSize: 16, fontWeight: "800", color: C.textDark }}>
-                  {booking.code}
-                </Text>
-                <Text style={{ fontSize: 16, fontWeight: "800", color: C.textDark }}>
-                  {(booking.totalAmount ?? 0).toLocaleString()}₮
-                </Text>
-              </View>
-
-              <View style={{ padding: 18, gap: 14 }}>
-                {/* Хүргэх хаяг + хэрэглэгч */}
-                {booking.user ? (
-                  <>
-                    <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
-                      <Ionicons
-                        name="location"
-                        size={20}
-                        color={C.delivery}
-                        style={{ marginTop: 1 }}
-                      />
-                      <Text style={{ fontSize: 15, color: C.textDark, flex: 1, lineHeight: 22 }}>
-                        {booking.user.address || "—"}
-                      </Text>
-                    </View>
-
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                      }}
-                    >
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 14, fontWeight: "600", color: C.textDark }}>
-                          {[booking.user.firstName, booking.user.lastName]
-                            .filter(Boolean)
-                            .join(" ") || "Хэрэглэгч"}
-                        </Text>
-                        {booking.user.phone ? (
-                          <Text style={{ fontSize: 13, color: C.textMd, marginTop: 2 }}>
-                            {booking.user.phone}
-                          </Text>
-                        ) : null}
-                      </View>
-                      {booking.user.phone ? (
-                        <TouchableOpacity
-                          onPress={() => Linking.openURL(`tel:${booking.user?.phone}`)}
-                          style={{
-                            backgroundColor: C.success,
-                            borderRadius: 14,
-                            paddingHorizontal: 16,
-                            paddingVertical: 9,
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 6,
-                          }}
-                        >
-                          <Ionicons name="call" size={15} color="#fff" />
-                          <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>
-                            Залгах
-                          </Text>
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                  </>
-                ) : null}
-
-                {/* Бараа */}
-                <View style={{ borderTopWidth: 1, borderTopColor: C.border, paddingTop: 12 }}>
-                  {booking.items?.map((item, i) => (
-                    <View
-                      key={i}
-                      style={{
-                        flexDirection: "row",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        paddingVertical: 6,
-                      }}
-                    >
-                      <Text style={{ fontSize: 14, color: C.textDark, flex: 1 }}>
-                        {item.product?.name ?? "Бараа"}
-                      </Text>
-                      <Text style={{ fontSize: 13, color: C.textMd }}>× {item.quantity}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Хүргэгдсэн болгох */}
-                <TouchableOpacity
-                  onPress={() => handleComplete(booking)}
-                  disabled={completingId === booking._id}
+                {/* Гарчиг — захиалгын код + нийт дүн */}
+                <View
                   style={{
-                    backgroundColor: completingId === booking._id ? C.primaryDisabled : C.success,
-                    borderRadius: 16,
-                    paddingVertical: 15,
-                    alignItems: "center",
                     flexDirection: "row",
-                    justifyContent: "center",
-                    gap: 10,
-                    marginTop: 2,
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    paddingHorizontal: 18,
+                    paddingVertical: 14,
+                    borderBottomWidth: 1,
+                    borderBottomColor: C.border,
                   }}
                 >
-                  {completingId === booking._id ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <>
-                      <Ionicons name="checkmark-done-outline" size={20} color="#fff" />
-                      <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>
-                        Хүргэгдсэн болгох
+                  <Text style={{ fontSize: 16, fontWeight: "800", color: C.textDark }}>
+                    {booking.code}
+                  </Text>
+                  <Text style={{ fontSize: 16, fontWeight: "800", color: C.textDark }}>
+                    {(booking.totalAmount ?? 0).toLocaleString()}₮
+                  </Text>
+                </View>
+
+                <View style={{ padding: 18, gap: 14 }}>
+                  {/* Хүргэх хаяг + хэрэглэгч */}
+                  <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+                    <Ionicons
+                      name="location"
+                      size={20}
+                      color={C.delivery}
+                      style={{ marginTop: 1 }}
+                    />
+                    <Text style={{ fontSize: 15, color: C.textDark, flex: 1, lineHeight: 22 }}>
+                      {c.address || "—"}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                    }}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: "600", color: C.textDark }}>
+                        {c.name}
                       </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
+                      {c.phone ? (
+                        <Text style={{ fontSize: 13, color: C.textMd, marginTop: 2 }}>
+                          {c.phone}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {c.phone ? (
+                      <TouchableOpacity
+                        onPress={() => Linking.openURL(`tel:${c.phone}`)}
+                        style={{
+                          backgroundColor: C.success,
+                          borderRadius: 14,
+                          paddingHorizontal: 16,
+                          paddingVertical: 9,
+                          flexDirection: "row",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <Ionicons name="call" size={15} color="#fff" />
+                        <Text style={{ fontSize: 13, fontWeight: "700", color: "#fff" }}>
+                          Залгах
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+
+                  {/* Бараа */}
+                  <View style={{ borderTopWidth: 1, borderTopColor: C.border, paddingTop: 12 }}>
+                    {booking.items?.map((item, i) => (
+                      <View
+                        key={i}
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          paddingVertical: 6,
+                        }}
+                      >
+                        <Text style={{ fontSize: 14, color: C.textDark, flex: 1 }}>
+                          {item.product?.name ?? "Бараа"}
+                        </Text>
+                        <Text style={{ fontSize: 13, color: C.textMd }}>× {item.quantity}</Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Хүргэгдсэн болгох */}
+                  <TouchableOpacity
+                    onPress={() => handleComplete(booking)}
+                    disabled={completingId === booking._id}
+                    style={{
+                      backgroundColor: completingId === booking._id ? C.primaryDisabled : C.success,
+                      borderRadius: 16,
+                      paddingVertical: 15,
+                      alignItems: "center",
+                      flexDirection: "row",
+                      justifyContent: "center",
+                      gap: 10,
+                      marginTop: 2,
+                    }}
+                  >
+                    {completingId === booking._id ? (
+                      <ActivityIndicator color="#fff" />
+                    ) : (
+                      <>
+                        <Ionicons name="checkmark-done-outline" size={20} color="#fff" />
+                        <Text style={{ color: "#fff", fontSize: 15, fontWeight: "700" }}>
+                          Хүргэгдсэн болгох
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </ScrollView>
       )}
     </SafeAreaView>

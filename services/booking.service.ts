@@ -15,6 +15,11 @@ export interface Booking {
   createdAt: string;
   driver?: string;
   driverAcceptedAt?: string;
+  // Хүргэлтийн мэдээллийг booking дээр шууд хадгална (захиалга үүсэх үеийн snapshot).
+  // Жолоочид харуулах ЗӨВ эх сурвалж энэ — `user` нь populate хийгдээгүй ObjectId.
+  customerName?: string;
+  customerPhone?: string;
+  address?: string;
   user?: {
     firstName?: string;
     lastName?: string;
@@ -22,6 +27,24 @@ export interface Booking {
     address?: string;
   };
   items: BookingItem[];
+}
+
+/**
+ * Захиалгаас харуулах хэрэглэгч/утас/хаягийг гаргана.
+ * Эхлээд booking дээрх snapshot (customerName/customerPhone/address)-ыг,
+ * байхгүй бол populate хийгдсэн user-ийн талбарыг ашиглана.
+ */
+export function bookingContact(b: Booking): {
+  name: string;
+  phone: string;
+  address: string;
+} {
+  const name =
+    b.customerName?.trim() ||
+    [b.user?.firstName, b.user?.lastName].filter(Boolean).join(" ").trim();
+  const phone = b.customerPhone?.trim() || b.user?.phone?.trim() || "";
+  const address = b.address?.trim() || b.user?.address?.trim() || "";
+  return { name: name || "Хэрэглэгч", phone, address };
 }
 
 export const bookingService = {

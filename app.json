@@ -1,8 +1,9 @@
 {
   "expo": {
     "name": "C21 Driver",
-    "slug": "c21-driver",
-    "version": "1.0.0",
+    "slug": "driver-app",
+    "version": "1.0.2",
+    "icon": "./public/appstore.png",
     "orientation": "portrait",
     "scheme": "driverapp",
     "userInterfaceStyle": "light",
@@ -10,13 +11,14 @@
     "ios": {
       "bundleIdentifier": "com.manlai.dzgdriver",
       "supportsTablet": true,
-      "buildNumber": "1",
+      "buildNumber": "3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./public/appstore.png",
         "backgroundColor": "#000000"
       },
       "package": "mn.shuurkhai.driver"
