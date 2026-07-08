@@ -62,8 +62,9 @@ export const bookingService = {
   accept: (id: string): Promise<{ booking: Booking }> =>
     api.post(`/bookings/${id}/accept`),
 
-  complete: (id: string): Promise<{ booking: Booking }> =>
-    api.post(`/bookings/${id}/complete`),
+  // Захиалагчаас авсан хүргэлтийн кодыг илгээж баталгаажуулна.
+  complete: (id: string, code: string): Promise<{ booking: Booking }> =>
+    api.post(`/bookings/${id}/complete`, { code }),
 
   stats: (): Promise<{
     delivered: number;

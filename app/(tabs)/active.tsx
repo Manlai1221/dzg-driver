@@ -10,13 +10,16 @@ import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   RefreshControl,
   SafeAreaView,
   ScrollView,
   StatusBar,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -25,6 +28,9 @@ export default function ActiveScreen() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [completingId, setCompletingId] = useState<string | null>(null);
+  // Хүргэлтийн код баталгаажуулах modal-ийн төлөв.
+  const [codeTarget, setCodeTarget] = useState<Booking | null>(null);
+  const [codeInput, setCodeInput] = useState("");
 
   const load = useCallback(async (silent = false) => {
     try {
@@ -48,25 +54,32 @@ export default function ActiveScreen() {
     }, [load]),
   );
 
+  // Хүргэлт дуусгах — захиалагчийн 4 оронтой кодыг асуух modal нээнэ.
   const handleComplete = (booking: Booking) => {
-    Alert.alert("Баталгаажуулах", `${booking.code} захиалгыг хүргэж дууссан гэж тэмдэглэх үү?`, [
-      { text: "Болих", style: "cancel" },
-      {
-        text: "Тийм",
-        onPress: async () => {
-          try {
-            setCompletingId(booking._id);
-            await bookingService.complete(booking._id);
-            // Дууссан захиалгыг жагсаалтаас шууд хасна.
-            setBookings((prev) => prev.filter((b) => b._id !== booking._id));
-          } catch (e: any) {
-            Alert.alert("Алдаа", e.message);
-          } finally {
-            setCompletingId(null);
-          }
-        },
-      },
-    ]);
+    setCodeInput("");
+    setCodeTarget(booking);
+  };
+
+  const submitComplete = async () => {
+    if (!codeTarget) return;
+    const code = codeInput.trim();
+    if (code.length < 4) {
+      Alert.alert("Анхаар", "Захиалагчийн 4 оронтой кодыг оруулна уу.");
+      return;
+    }
+    try {
+      setCompletingId(codeTarget._id);
+      await bookingService.complete(codeTarget._id, code);
+      // Дууссан захиалгыг жагсаалтаас шууд хасна.
+      setBookings((prev) => prev.filter((b) => b._id !== codeTarget._id));
+      setCodeTarget(null);
+      setCodeInput("");
+    } catch (e: any) {
+      // Код буруу бол backend ValidationError буцаана — modal нээлттэй үлдэнэ.
+      Alert.alert("Алдаа", e.message);
+    } finally {
+      setCompletingId(null);
+    }
   };
 
   return (
@@ -260,6 +273,98 @@ export default function ActiveScreen() {
           })}
         </ScrollView>
       )}
+
+      {/* Хүргэлтийн код баталгаажуулах modal */}
+      <Modal
+        visible={!!codeTarget}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCodeTarget(null)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            justifyContent: "center",
+            paddingHorizontal: 28,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: C.surface,
+              borderRadius: 22,
+              padding: 22,
+              gap: 14,
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: "800", color: C.textDark }}>
+              Хүргэлтийн код
+            </Text>
+            <Text style={{ fontSize: 13, color: C.textMd, lineHeight: 19 }}>
+              {codeTarget?.code} захиалгыг хүлээлгэн өгөхдөө захиалагчаас 4 оронтой
+              кодыг асууж оруулна уу.
+            </Text>
+            <TextInput
+              value={codeInput}
+              onChangeText={(t) => setCodeInput(t.replace(/[^0-9]/g, ""))}
+              keyboardType="number-pad"
+              maxLength={4}
+              autoFocus
+              placeholder="----"
+              placeholderTextColor={C.textSm}
+              style={{
+                borderWidth: 1.5,
+                borderColor: C.border,
+                borderRadius: 14,
+                paddingVertical: 14,
+                paddingHorizontal: 16,
+                fontSize: 26,
+                fontWeight: "800",
+                letterSpacing: 10,
+                textAlign: "center",
+                color: C.textDark,
+              }}
+            />
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 2 }}>
+              <TouchableOpacity
+                onPress={() => setCodeTarget(null)}
+                style={{
+                  flex: 1,
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                  borderWidth: 1.5,
+                  borderColor: C.border,
+                }}
+              >
+                <Text style={{ fontSize: 15, fontWeight: "700", color: C.textDark }}>
+                  Болих
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={submitComplete}
+                disabled={!!completingId}
+                style={{
+                  flex: 1,
+                  borderRadius: 14,
+                  paddingVertical: 14,
+                  alignItems: "center",
+                  backgroundColor: completingId ? C.primaryDisabled : C.success,
+                }}
+              >
+                {completingId ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>
+                    Баталгаажуулах
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
