@@ -7,7 +7,7 @@
 // backend-ээ дахин deploy хийж, зөв URL-ийг энд тавьсны дараа build хийнэ.
 
 // Dev: өөрийн компьютерийн LAN IP (утас+комп нэг WiFi). iOS Simulator бол localhost.
-const DEV_API_URL = "http://192.168.1.29:4000";
+const DEV_API_URL = "http://192.168.1.22:4000";
 
 // Prod: TestFlight/Store build энд заасан backend руу холбоно.
 const PROD_API_URL = "https://dzg-service-production.up.railway.app";
